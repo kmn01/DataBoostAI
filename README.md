@@ -1,4 +1,4 @@
-# SafeVisionAI: Synthetic Data Platform for Industrial Safety
+# DataBoostAI: Synthetic Data Platform for Industrial Safety
 
 ### Authors
 - **Jiwon Bae** — MS Data Science @ Columbia University  
@@ -8,10 +8,10 @@
 ---
 
 ## 🚧 Overview
-**SafeVisionAI** is a **Synthetic Data as a Service (SDaaS)** platform that generates **photorealistic industrial safety datasets** using **Amazon Bedrock**.  
+**DataBoostAI** is a **Synthetic Data as a Service (SDaaS)** platform that generates **photorealistic industrial safety datasets** using **Amazon Bedrock**.  
 It enables companies to train and improve **Computer Vision models for PPE compliance** (helmets, vests, goggles) without relying on expensive, privacy-sensitive real-world footage.
 
-By transforming real seed images into diverse, realistic variations, SafeVisionAI:
+By transforming real seed images into diverse, realistic variations, DataBoostAI:
 - Cuts labeling costs by **80–90%**  
 - Improves downstream model performance (**Δ F1 +6–12 points**)  
 - Eliminates **PII and legal risk** from real footage  
@@ -27,7 +27,7 @@ Industrial AI systems struggle with:
 - Fragile models that fail under poor lighting, odd angles, or non-compliance scenarios  
 
 ### Solution
-SafeVisionAI uses **Bedrock’s Titan Image Generator v2** to create synthetic PPE scenes that:
+DataBoostAI uses **Bedrock’s Titan Image Generator v2** to create synthetic PPE scenes that:
 - Cover rare “edge cases” safely and cheaply  
 - Provide automatic annotations (based on structured prompts)  
 - Scale instantly via AWS serverless architecture  
@@ -69,7 +69,7 @@ We use **Amazon Titan Image Generator v2 (Bedrock)** in `IMAGE_VARIATION` mode w
 > cartoon, illustration, unsafe behavior, distorted proportions, missing PPE, text, watermark, logo.
 
 ### Guardrails
-SafeVisionAI integrates **Amazon Bedrock Guardrails** to:
+DataBoostAI integrates **Amazon Bedrock Guardrails** to:
 - Block unsafe or biased generations  
 - Enforce PPE and safety compliance  
 - Ensure diversity in workers’ appearance and environment  
@@ -78,7 +78,7 @@ SafeVisionAI integrates **Amazon Bedrock Guardrails** to:
 
 ## 💼 Business Value
 
-| KPI | Before | With SafeVisionAI |
+| KPI | Before | With DataBoostAI |
 |------|---------|-------------------|
 | Labeling Cost (per 1K images) | ~$700 | ~$40 |
 | Model F1 (example) | 78% | 88–90% |
