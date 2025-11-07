@@ -4,6 +4,8 @@ import json
 import base64
 from PIL import Image
 import io
+import zipfile
+from datetime import datetime
 
 def encode_image(image):
     buffer = io.BytesIO()
@@ -12,12 +14,12 @@ def encode_image(image):
 
 def generate_variations(
     image: Image.Image,
-    num_variations=5,
     prompt_text: str,
     negative_prompt: str,
     similarity: float,
     prompt_strength: float,
     base_seed: int,
+    num_variations=5,
 ):
     bedrock = boto3.client('bedrock-runtime')
     
@@ -29,17 +31,17 @@ def generate_variations(
         
         body = {
             "taskType": "IMAGE_VARIATION",
-            "textToImageParams": {
+            "imageVariationParams": {
+                "images": [encoded_image],
                 "text": prompt_text,
                 "negativeText": negative_prompt,
-                "conditionImage": encoded_image,
-                "controlStrength": similarity,  # similarity / how much to follow base
+                "similarityStrength": similarity,
             },
             "imageGenerationConfig": {
                 "numberOfImages": 1,
                 "height": 512,
                 "width": 512,
-                "cfgScale": prompt_strength,   # prompt strength
+                "cfgScale": prompt_strength,
                 "seed": seed,
             },
         }
@@ -65,7 +67,7 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    # num_variations = st.slider("Number of variations per image", 1, 5, 3)
+    num_variations = st.slider("Number of variations per image", 2, 50, 3)
 
     prompt_text = st.text_area(
         "Prompt (variation instructions)",
@@ -95,9 +97,9 @@ if uploaded_files:
     )
 
     prompt_strength = st.slider(
-        "Prompt Strength (cfgScale)",
+        "Prompt Strength (prompt adherence) - lower = takes more liberties, higher = follows prompt more closely",
         min_value=1.0,
-        max_value=20.0,
+        max_value=10.0,
         value=8.0,
         step=0.5,
     )
@@ -110,22 +112,27 @@ if uploaded_files:
     )
     
     if st.button("Generate Variations"):
+        all_images = []
+        
         for uploaded_file in uploaded_files:
             st.markdown("---")
             st.subheader(f"Original: {uploaded_file.name}")
 
             original_image = Image.open(uploaded_file).convert("RGB")
-            st.image(original_image, use_column_width=True)
+            st.image(original_image, width='stretch')
+            
+            # Store original image
+            all_images.append((f"original_{uploaded_file.name}", original_image))
 
             with st.spinner(f"Generating variations for {uploaded_file.name}..."):
                 variations = generate_variations(
                     image=original_image,
-                    num_variations=num_variations,
                     prompt_text=prompt_text,
                     negative_prompt=negative_prompt,
                     similarity=similarity,
                     prompt_strength=prompt_strength,
                     base_seed=base_seed,
+                    num_variations=num_variations,
                 )
 
             st.subheader("Generated Variations")
@@ -140,7 +147,28 @@ if uploaded_files:
                             f"Model: Titan v2 | Seed: {seed}\n"
                             f"Similarity: {similarity} | Prompt Strength: {prompt_strength}"
                         ),
-                        use_column_width=True,
+                        width='stretch',
                     )
+                
+                # Store variation
+                filename = f"{uploaded_file.name.split('.')[0]}_variation_{i+1}_seed_{seed}.png"
+                all_images.append((filename, variation))
 
         st.success("Done generating variations ✅")
+        
+        # Create zip download
+        if all_images:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for filename, image in all_images:
+                    img_buffer = io.BytesIO()
+                    image.save(img_buffer, format='PNG')
+                    zip_file.writestr(filename, img_buffer.getvalue())
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            st.download_button(
+                label="📥 Download All Images (ZIP)",
+                data=zip_buffer.getvalue(),
+                file_name=f"generated_images_{timestamp}.zip",
+                mime="application/zip"
+            )
