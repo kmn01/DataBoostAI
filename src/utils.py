@@ -39,27 +39,3 @@ def create_zip_download(all_images):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return zip_buffer.getvalue(), f"generated_images_{timestamp}.zip"
 
-def upload_to_s3(all_images):
-    """Upload images to S3 bucket databoostai."""
-    import boto3
-    
-    s3 = boto3.client('s3')
-    bucket_name = 'databoostai'
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    folder_name = f"generated_dataset_{timestamp}"
-    
-    uploaded_files = []
-    for filename, image in all_images:
-        img_buffer = io.BytesIO()
-        image.save(img_buffer, format='PNG')
-        s3_key = f"{folder_name}/{filename}"
-        
-        s3.put_object(
-            Bucket=bucket_name,
-            Key=s3_key,
-            Body=img_buffer.getvalue(),
-            ContentType='image/png'
-        )
-        uploaded_files.append(s3_key)
-    
-    return folder_name, uploaded_files

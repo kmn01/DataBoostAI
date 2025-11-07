@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 from bedrock_client import generate_variations
 from ui_components import render_file_upload, render_generation_controls, display_images
-from utils import create_zip_download, upload_to_s3
+from utils import create_zip_download
 
 def main():
     st.title("Image Dataset Augmentation")
@@ -46,18 +46,9 @@ def main():
 
             st.success("Done generating variations ✅")
             
-            # Create zip download and upload to S3
+            # Create zip download
             if all_images:
                 zip_data, zip_filename = create_zip_download(all_images)
-                
-                # Upload to S3
-                with st.spinner("Uploading to S3..."):
-                    try:
-                        folder_name, uploaded_files = upload_to_s3(all_images)
-                        st.success(f"✅ Uploaded {len(uploaded_files)} images to S3 folder: {folder_name}")
-                    except Exception as e:
-                        st.error(f"❌ S3 upload failed: {str(e)}")
-                
                 st.download_button(
                     label="📥 Download All Images (ZIP)",
                     data=zip_data,
