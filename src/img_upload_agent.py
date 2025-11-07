@@ -11,27 +11,37 @@ def encode_image(image):
     return base64.b64encode(buffer.getvalue()).decode()
 
 def generate_variations(image, num_variations=3):
-    bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
+    bedrock = boto3.client('bedrock-runtime')
     
     encoded_image = encode_image(image)
+    
+    prompts = [
+        "different lighting conditions, bright daylight",
+        "different background, outdoor setting", 
+        "different colors, vibrant color scheme",
+        "different angle, side view perspective",
+        "different weather, rainy or cloudy conditions"
+    ]
     
     variations = []
     for i in range(num_variations):
         body = json.dumps({
-            "taskType": "IMAGE_VARIATION",
-            "imageVariationParams": {
-                "images": [encoded_image],
-                "similarityStrength": 0.7
+            "taskType": "TEXT_IMAGE",
+            "textToImageParams": {
+                "text": f"Create a variation of this image with {prompts[i % len(prompts)]}, maintain the main subject and composition",
+                "conditionImage": encoded_image,
+                "controlStrength": 0.7
             },
             "imageGenerationConfig": {
                 "numberOfImages": 1,
                 "height": 512,
-                "width": 512
+                "width": 512,
+                "cfgScale": 8.0
             }
         })
         
         response = bedrock.invoke_model(
-            modelId='amazon.titan-image-generator-v1',
+            modelId='amazon.titan-image-generator-v2:0',
             body=body
         )
         
