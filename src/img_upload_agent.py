@@ -8,6 +8,54 @@ import zipfile
 from datetime import datetime
 import random
 
+def create_image_guardrail():
+    bedrock = boto3.client('bedrock')
+    
+    try:
+        response = bedrock.create_guardrail(
+            name='ImageAugmentationGuardrail',
+            description='Filters inappropriate content for industrial dataset augmentation',
+            contentPolicyConfig={
+                'filtersConfig': [
+                    {
+                        'type': 'HATE',
+                        'inputStrength': 'HIGH',
+                        'outputStrength': 'HIGH'
+                    },
+                    {
+                        'type': 'VIOLENCE',
+                        'inputStrength': 'LOW',
+                        'outputStrength': 'LOW'
+                    },
+                    {
+                        'type': 'SEXUAL',
+                        'inputStrength': 'HIGH',
+                        'outputStrength': 'HIGH'
+                    },
+                    {
+                        'type': 'MISCONDUCT',
+                        'inputStrength': 'MEDIUM',
+                        'outputStrength': 'MEDIUM'
+                    }
+                ]
+            },
+            blockedInputMessagingConfig={
+                'message': 'Input prompt contains inappropriate content for industrial dataset generation.'
+            },
+            blockedOutputsMessagingConfig={
+                'message': 'Generated image was filtered to ensure appropriate industrial content.'
+            }
+        )
+        return response['guardrailId'], response['version']
+    except Exception as e:
+        if 'already exists' in str(e):
+            # Get existing guardrail
+            guardrails = bedrock.list_guardrails()
+            for guardrail in guardrails['guardrails']:
+                if guardrail['name'] == 'ImageAugmentationGuardrail':
+                    return guardrail['id'], guardrail['version']
+        raise e
+
 def encode_image(image):
     buffer = io.BytesIO()
     image.save(buffer, format='PNG')
@@ -52,10 +100,25 @@ def generate_variations(
         }
         
         try:
-            response = bedrock.invoke_model(
-                modelId="amazon.titan-image-generator-v2:0",
-                body=json.dumps(body)
-            )
+            # Get or create guardrail
+            try:
+                guardrail_id, guardrail_version = create_image_guardrail()
+            except:
+                guardrail_id, guardrail_version = None, None
+            
+            # Invoke model with guardrail if available
+            if guardrail_id:
+                response = bedrock.invoke_model(
+                    modelId="amazon.titan-image-generator-v2:0",
+                    body=json.dumps(body),
+                    guardrailIdentifier=guardrail_id,
+                    guardrailVersion=guardrail_version
+                )
+            else:
+                response = bedrock.invoke_model(
+                    modelId="amazon.titan-image-generator-v2:0",
+                    body=json.dumps(body)
+                )
             
             result = json.loads(response['body'].read())
             if "images" in result and result["images"]:
@@ -78,20 +141,35 @@ uploaded_files = st.file_uploader(
 )
 
 valid_files = []
+validation_results = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
         try:
             img = Image.open(uploaded_file)
             width, height = img.size
             if min(width, height) < 256:
-                st.error(f"❌ {uploaded_file.name}: Too small (min: 256px, got: {min(width, height)}px)")
+                validation_results.append(f"❌ {uploaded_file.name}: Too small (min: 256px, got: {min(width, height)}px)")
             elif max(width, height) > 4096:
-                st.error(f"❌ {uploaded_file.name}: Too large (max: 4096px, got: {max(width, height)}px)")
+                validation_results.append(f"❌ {uploaded_file.name}: Too large (max: 4096px, got: {max(width, height)}px)")
             else:
                 valid_files.append(uploaded_file)
-                st.success(f"✅ {uploaded_file.name}: Valid ({width}×{height}px)")
+                validation_results.append(f"✅ {uploaded_file.name}: Valid ({width}×{height}px)")
         except Exception as e:
-            st.error(f"❌ {uploaded_file.name}: Invalid image file")
+            validation_results.append(f"❌ {uploaded_file.name}: Invalid image file")
+    
+    # Show validation summary
+    valid_count = len(valid_files)
+    total_count = len(uploaded_files)
+    
+    if valid_count == total_count:
+        st.success(f"✅ All {total_count} images are valid")
+    else:
+        st.warning(f"⚠️ {valid_count}/{total_count} images are valid")
+    
+    # Validation details in expander
+    with st.expander("📋 View validation details"):
+        for result in validation_results:
+            st.write(result)
 
 if valid_files:
     num_variations = st.slider("Number of variations per image", 1, 20, 5)
