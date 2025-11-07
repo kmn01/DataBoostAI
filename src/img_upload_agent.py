@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import zipfile
 from datetime import datetime
+import random
 
 def encode_image(image):
     buffer = io.BytesIO()
@@ -27,7 +28,7 @@ def generate_variations(
     
     variations = []
     for i in range(num_variations):
-        seed = int(base_seed + i)
+        seed = random.randint(0, 999999999)
         
         body = {
             "taskType": "IMAGE_VARIATION",
