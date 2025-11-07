@@ -67,7 +67,6 @@ def generate_variations(
     negative_prompt: str,
     similarity: float,
     prompt_strength: float,
-    base_seed: int,
     num_variations=5,
 ):
     bedrock = boto3.client('bedrock-runtime')
@@ -211,12 +210,7 @@ if valid_files:
         step=0.5,
     )
 
-    base_seed = st.number_input(
-        "Base Seed (different seeds → different variations)",
-        min_value=0,
-        value=0,
-        step=1,
-    )
+
     
     if st.button("Generate Variations"):
         all_images = []
@@ -238,7 +232,6 @@ if valid_files:
                     negative_prompt=negative_prompt,
                     similarity=similarity,
                     prompt_strength=prompt_strength,
-                    base_seed=base_seed,
                     num_variations=num_variations,
                 )
 
