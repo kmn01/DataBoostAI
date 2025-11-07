@@ -47,28 +47,55 @@ def generate_variations(
             },
         }
         
-        response = bedrock.invoke_model(
-            modelId="amazon.titan-image-generator-v2:0",
-            body=json.dumps(body),
-        )
-        
-        result = json.loads(response['body'].read())
-        img_b64 = result["images"][0]
-        img_bytes = base64.b64decode(img_b64)
-        variations.append((seed, Image.open(io.BytesIO(img_bytes))))
+        try:
+            response = bedrock.invoke_model(
+                modelId="amazon.titan-image-generator-v2:0",
+                body=json.dumps(body)
+            )
+            
+            result = json.loads(response['body'].read())
+            if "images" in result and result["images"]:
+                img_b64 = result["images"][0]
+                img_bytes = base64.b64decode(img_b64)
+                variations.append((seed, Image.open(io.BytesIO(img_bytes))))
+            else:
+                st.warning(f"⚠️ Variation {i+1} was filtered by content policy")
+        except Exception as e:
+            if "blocked" in str(e).lower() or "filtered" in str(e).lower():
+                st.warning(f"⚠️ Variation {i+1} was blocked by content policy")
+            else:
+                st.error(f"❌ Error generating variation {i+1}: {str(e)}")
 
     return variations
 
 st.title("Image Dataset Augmentation")
 
 uploaded_files = st.file_uploader(
-    "Upload images for augmentation", 
+    "Upload images for augmentation (min: 256px, max: 4096px per dimension)", 
     type=['png', 'jpg', 'jpeg'], 
     accept_multiple_files=True
 )
 
+valid_files = []
 if uploaded_files:
-    num_variations = st.slider("Number of variations per image", 2, 50, 3)
+    for uploaded_file in uploaded_files:
+        try:
+            img = Image.open(uploaded_file)
+            width, height = img.size
+            if min(width, height) < 256:
+                st.error(f"❌ {uploaded_file.name}: Too small (min: 256px, got: {min(width, height)}px)")
+            elif max(width, height) > 4096:
+                st.error(f"❌ {uploaded_file.name}: Too large (max: 4096px, got: {max(width, height)}px)")
+            else:
+                valid_files.append(uploaded_file)
+                st.success(f"✅ {uploaded_file.name}: Valid ({width}×{height}px)")
+        except Exception as e:
+            st.error(f"❌ {uploaded_file.name}: Invalid image file")
+
+if valid_files:
+    num_variations = st.slider("Number of variations per image", 1, 20, 5)
+    
+    st.info(f"📊 Dataset Summary: {len(valid_files)} valid images × {num_variations} variations = {len(valid_files) * num_variations} total generated images")
 
     prompt_text = st.text_area(
         "Prompt (variation instructions)",
@@ -115,7 +142,7 @@ if uploaded_files:
     if st.button("Generate Variations"):
         all_images = []
         
-        for uploaded_file in uploaded_files:
+        for uploaded_file in valid_files:
             st.markdown("---")
             st.subheader(f"Original: {uploaded_file.name}")
 
@@ -143,11 +170,11 @@ if uploaded_files:
                 with cols[i]:
                     st.image(
                         variation,
-                        caption=(
-                            f"Variation {i+1}\n"
-                            f"Model: Titan v2 | Seed: {seed}\n"
-                            f"Similarity: {similarity} | Prompt Strength: {prompt_strength}"
-                        ),
+                        # caption=(
+                        #     f"Variation {i+1}\n"
+                        #     f"Model: Titan v2 | Seed: {seed}\n"
+                        #     f"Similarity: {similarity} | Prompt Strength: {prompt_strength}"
+                        # ),
                         width='stretch',
                     )
                 
