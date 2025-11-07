@@ -27,7 +27,11 @@ def generate_variations(
     encoded_image = encode_image(image)
     
     variations = []
-    for i in range(num_variations):
+    attempts = 0
+    max_attempts = num_variations * 3  # Allow up to 3x attempts
+    
+    while len(variations) < num_variations and attempts < max_attempts:
+        attempts += 1
         seed = random.randint(0, 999999999)
         
         body = {
@@ -58,13 +62,10 @@ def generate_variations(
                 img_b64 = result["images"][0]
                 img_bytes = base64.b64decode(img_b64)
                 variations.append((seed, Image.open(io.BytesIO(img_bytes))))
-            else:
-                st.warning(f"⚠️ Variation {i+1} was filtered by content policy")
         except Exception as e:
-            if "blocked" in str(e).lower() or "filtered" in str(e).lower():
-                st.warning(f"⚠️ Variation {i+1} was blocked by content policy")
-            else:
-                st.error(f"❌ Error generating variation {i+1}: {str(e)}")
+            if not ("blocked" in str(e).lower() or "filtered" in str(e).lower()):
+                st.error(f"❌ Error generating variation: {str(e)}")
+                break
 
     return variations
 
